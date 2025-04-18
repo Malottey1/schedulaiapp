@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <style>
+    /* Conflict-Free Matrix Page Specific Styles */
+    .matrix-table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    .matrix-table th,
+    .matrix-table td {
+      text-align: center;
+      vertical-align: middle;
+      border: 1px solid #ccc;
+      padding: 5px;
+    }
+    .session-box {
+      margin: 2px 0;
+      padding: 4px;
+      color: #fff;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      position: relative;
+      cursor: move;
+    }
+    .session-box::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 100%;
+      border-radius: 2px 0 0 2px;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    .conflict-border {
+      border: 2px dashed red !important;
+    }
+    .legend-container {
+      margin-bottom: 1rem;
+    }
+    .legend-title {
+      font-weight: bold;
+      margin-right: 1rem;
+    }
+    .legend-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .legend-list li {
+      display: flex;
+      align-items: center;
+      margin-right: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .legend-swatch {
+      width: 1.2rem;
+      height: 1.2rem;
+      display: inline-block;
+      margin-right: 0.5rem;
+      border-radius: 3px;
+      border: 1px solid #999;
+      position: relative;
+    }
+    .legend-swatch-room::before {
+      content: "";
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: #000;
+      border-radius: 2px 0 0 2px;
+    }
+    .cell-hover {
+      background-color: #f0f0f0;
+    }
+  </style>
+
+  <div class="py-3">
+    <h1>Conflict-Free Matrix View</h1>
+    <p class="text-muted">
+      Rows = Start times of sessions &bullet; Columns = Monday–Friday
+    </p>
+
+    <!-- Legend Section -->
+    <div class="legend-container">
+      <div class="d-flex mb-2">
+        <!-- Room Legend -->
+        <div class="mr-5">
+          <span class="legend-title">Rooms:</span>
+          <ul class="legend-list">
+            {% for room_name, border_color in room_colors.items() %}
+            <li>
+              <span class="legend-swatch legend-swatch-room" style="background-color: #fff; border-color: #999; position: relative;">
+                <span style="position:absolute; left:0; top:0; height:100%; width:4px; border-radius:2px 0 0 2px; background-color: {{ border_color }};"></span>
+              </span>
+              <span>{{ room_name }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Year Legend -->
+        <div>
+          <span class="legend-title">Years:</span>
+          <ul class="legend-list">
+            {% set year_colors = {1: '#f86c6b', 2: '#20a8d8', 3: '#4dbd74', 4: '#ffc107'} %}
+            {% for yr, color in year_colors.items() %}
+            <li>
+              <span class="legend-swatch" style="background-color: {{ color }};"></span>
+              <span>Y{{ yr }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {# Define the same year_colors mapping for use below #}
+    {% set year_colors = {1: '#f86c6b', 2: '#20a8d8', 3: '#4dbd74', 4: '#ffc107'} %}
+
+    <div class="table-responsive">
+      <table class="matrix-table table table-bordered">
+        <thead>
+          <tr>
+            <th>Time</th>
+            {% for day in days %}
+              <th>{{ day }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in timeslots %}
+          <tr>
+            <!-- Time Column -->
+            <th scope="row">{{ t }}</th>
+            <!-- Day Columns -->
+            {% for day in days %}
+              {% set cell_sessions = matrix_data[day][t] %}
+              {# Build a room count to detect conflicts #}
+              {% set room_counts = {} %}
+              {% for s in cell_sessions %}
+                {% set r = s.RoomName %}
+                {% if r in room_counts %}
+                  {% set _ = room_counts.update({r: room_counts[r] + 1}) %}
+                {% else %}
+                  {% set _ = room_counts.update({r: 1}) %}
+                {% endif %}
+              {% endfor %}
+              {% set is_conflict = false %}
+              {% for rname, cnt in room_counts.items() %}
+                {% if cnt > 1 %}
+                  {% set is_conflict = true %}
+                {% endif %}
+              {% endfor %}
+              
+              <td class="{% if is_conflict %}conflict-border{% endif %}">
+                {% if cell_sessions|length == 0 %}
+                  <span class="text-muted">-</span>
+                {% else %}
+                {% for sess in cell_sessions %}
+                  {% set c = sess.get('CohortName', 'Unknown') %}
+                  {% set r = sess.get('RoomName', 'TBD') %}
+                  {% set enroll = sess.get('NumberOfEnrollments', 'n/a') %}
+                  {% set course = sess.get('CourseCode', '') %}
+                  {% set lecturer = sess.get('Lecturer', '') %}
+                  {% set stime = sess.get('StartTime', '00:00') %}
+                  {% set etime = sess.get('EndTime', '00:00') %}
+                  {% set duration = sess.get('Duration', '01:00:00') %} 
+                    
+                    {# Build the tooltip text #}
+                    {% set tooltip_text =
+                      "Course: " ~ course ~
+                      "<br>Cohort: " ~ c ~
+                      "<br>Lecturer: " ~ lecturer ~
+                      "<br>Room: " ~ r ~
+                      "<br>Enrollments: " ~ enroll ~
+                      "<br>Type: " ~ stype
+                    %}
+                    
+                    {% if sess.PlanInfo and sess.PlanInfo|length > 0 %}
+                      {% set first_pi = sess.PlanInfo[0] %}
+                      {% set first_year = first_pi.YearNumber|int %}
+                      {% set plan_color = year_colors[first_year] if first_year in year_colors else '#999' %}
+                      {% set plan_str_list = [] %}
+                      {% for pi in sess.PlanInfo %}
+                        {% set pi_text = pi.MajorName ~ " Y" ~ pi.YearNumber ~ "S" ~ pi.SemesterNumber %}
+                        {% if pi.SubType %}
+                          {% set pi_text = pi_text ~ " (" ~ pi.SubType ~ ")" %}
+                        {% endif %}
+                        {% set _ = plan_str_list.append(pi_text) %}
+                      {% endfor %}
+                      {% set plan_info_html = "<span style='color:" ~ plan_color ~ "'>" ~ plan_str_list|join("; ") ~ "</span>" %}
+                      {% set tooltip_text = tooltip_text ~ "<br><strong>In Plan:</strong> " ~ plan_info_html %}
+                    {% else %}
+                      {% set tooltip_text = tooltip_text ~ "<br><em>Not in ProgramPlan</em>" %}
+                    {% endif %}
+                    
+                    <div class="session-box mb-1"
+                        data-session-id="{{ sess.SessionID }}"
+                        data-room="{{ r }}"
+                        data-duration="{{ duration }}"  
+                        style="background-color: {{ plan_color or '#555' }}; border-left: 6px solid {{ room_colors[r] or '#999' }};"
+                        data-toggle="tooltip"
+                        data-html="true"
+                        title="{{ tooltip_text }}">
+                      {{ course }} ({{ c }}) - {{ r }}
+                    </div>
+                  {% endfor %}
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <!-- Include jQuery (full version), jQuery UI, Popper, and Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script>
+    $(function () {
+      // Enable tooltips
+      $('[data-toggle="tooltip"]').tooltip();
+
+      // Make session boxes draggable
+      $(".session-box").draggable({
+        revert: "invalid",
+        containment: ".matrix-table",  // restrict within the timetable
+        helper: "clone",
+        start: function(event, ui) {
+          // Optionally, add visual cues when dragging starts
+        }
+      });
+
+      // Make table cells droppable
+      $(".matrix-table td").droppable({
+        accept: ".session-box",
+        hoverClass: "cell-hover",
+        drop: function(event, ui) {
+          var droppedSession = ui.draggable;
+          // Get the new cell's time from the first th element in the row
+          var newTime = $(this).closest("tr").find("th").first().text();
+          // Determine the column index (assuming the first column is time)
+          var colIndex = $(this).index();
+          var days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+          var newDay = days[colIndex - 1]; // adjust if needed
+
+          // Update the UI: Move the session box into the new cell
+          $(this).append(droppedSession);
+
+          // Retrieve the session ID and current room and session duration from data attributes
+          var sessionID = droppedSession.data("session-id");
+          var room = droppedSession.data("room");
+          var durationStr = droppedSession.data("duration");  // Expected format "HH:MM:SS" (or "HH:MM")
+
+          // Parse the duration string to get total minutes.
+          // Split the string into hours, minutes (and optionally seconds).
+          var durParts = durationStr.split(':');
+          // Parse hours and minutes (ignore seconds for simplicity or round if desired)
+          var durHours = parseInt(durParts[0], 10);
+          var durMinutes = parseInt(durParts[1], 10);
+          // If seconds are provided, you can round them (optional)
+          var additionalMin = (durParts.length > 2) ? Math.round(parseInt(durParts[2], 10) / 60) : 0;
+          var totalDurationMinutes = durHours * 60 + durMinutes + additionalMin;
+
+          // Create a Date object for the new start time.
+          var timeParts = newTime.split(':');
+          var newStartDate = new Date();
+          newStartDate.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0, 0);
+
+          // Calculate new end time by adding the duration in minutes.
+          newStartDate.setMinutes(newStartDate.getMinutes() + totalDurationMinutes);
+
+          // Format the new end time as "HH:MM" (leading zeros if necessary)
+          var newEndHours = newStartDate.getHours().toString().padStart(2, '0');
+          var newEndMinutes = newStartDate.getMinutes().toString().padStart(2, '0');
+          var newEndTime = newEndHours + ":" + newEndMinutes;
+
+          // Prepare the updated session data with the new end time computed.
+          var updatedSession = {
+            SessionID: sessionID,
+            DayOfWeek: newDay,
+            StartTime: newTime,
+            EndTime: newEndTime,  // New computed end time
+            RoomName: room
+          };
+
+          // Send the update via AJAX to update the staging table
+          $.ajax({
+            url: "/save_updated_timetable",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify([updatedSession]), // Batch in an array if needed
+            success: function(response) {
+              console.log(response.message);
+            },
+            error: function(xhr) {
+              alert("Error updating session: " + xhr.responseJSON.message);
+            }
+          });
+        }
+      });
+  });
+</script>
+{% endblock %}
