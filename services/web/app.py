@@ -39,7 +39,7 @@ logging.basicConfig(
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host='db',
+            host='localhost',
             user='root',
             password='schedul_pass',
             database='schedulai'
