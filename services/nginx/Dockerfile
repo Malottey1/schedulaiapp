@@ -1,15 +1,13 @@
 FROM nginx:stable-alpine
 
-# Remove default config
+# remove the default vhost
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy our custom nginx.conf
+# copy your custom nginx.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy SSL certificates
-COPY ssl /etc/nginx/ssl
+# expose only port 80
+EXPOSE 80
 
-# Expose HTTP & HTTPS
-EXPOSE 80 443
-
+# start nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]
