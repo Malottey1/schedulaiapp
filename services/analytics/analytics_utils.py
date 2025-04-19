@@ -29,7 +29,7 @@ def convert_to_time(t):
 # Step 1: Load Timetable Data from the Staging Table
 # ----------------------------------------------------
 def get_timetable_data():
-    password = "Naakey057@"
+    password = "schedul_pass"
     encoded_password = quote_plus(password)  # Converts "@" to "%40"
     engine = create_engine(f'mysql+mysqlconnector://root:{encoded_password}@localhost/schedulai')
     query = """

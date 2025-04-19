@@ -7,9 +7,9 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root_password_here
+      MYSQL_ROOT_PASSWORD: schedul_pass
       MYSQL_DATABASE: schedulai
-      MYSQL_USER: scheduler
+      MYSQL_USER: root
       MYSQL_PASSWORD: scheduler_pass
     ports:
       - "3306:3306"
@@ -27,8 +27,8 @@ services:
     depends_on: [db]
     environment:
       DB_HOST: db
-      DB_USER: scheduler
-      DB_PASSWORD: scheduler_pass
+      DB_USER: root
+      DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
     ports:
       - "5001:5001"
@@ -40,8 +40,8 @@ services:
     depends_on: [db]
     environment:
       DB_HOST: db
-      DB_USER: scheduler
-      DB_PASSWORD: scheduler_pass
+      DB_USER: root
+      DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
     ports:
       - "5002:5002"
@@ -53,8 +53,8 @@ services:
     depends_on: [db]
     environment:
       DB_HOST: db
-      DB_USER: scheduler
-      DB_PASSWORD: scheduler_pass
+      DB_USER: root
+      DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
     ports:
       - "5003:5003"
@@ -71,8 +71,8 @@ services:
       - redis
     environment:
       DB_HOST: db
-      DB_USER: scheduler
-      DB_PASSWORD: scheduler_pass
+      DB_USER: root
+      DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
       REDIS_URL: redis://redis:6379
       SCHEDULING_ENGINE_URL: http://scheduling_engine:5001
