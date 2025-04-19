@@ -1,17 +1,16 @@
-# Use a slim Python base
 FROM python:3.11-slim
-
 WORKDIR /app
 
-# Install Python deps
+# Copy your requirements first
 COPY requirements.txt ./
+
+# Copy the 'libs' folder so that pip can see ../libs/scheduling
+COPY ../../libs ./libs
+
+# Install dependencies (including the editable lib)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy service code (including templates/)
+# Copy the service code itself
 COPY . .
 
-# Expose the scheduler port
-EXPOSE 5001
-
-# Run under Gunicorn
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5001"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "app:app"]
