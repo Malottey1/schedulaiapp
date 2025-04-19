@@ -20,7 +20,7 @@ app.logger.setLevel(logging.INFO)
 # ROUTE: Run Scheduler (background thread)
 # ----------------------------------------------------
 @app.route('/run_scheduler', methods=['GET', 'POST'])
-def run_scheduler_route():
+def run_scheduler():
     app.logger.info("Accessed /run_scheduler route.")
     if request.method == 'POST':
         # path to your CSV or whatever input the scheduler needs
@@ -41,7 +41,7 @@ def run_scheduler_route():
         except Exception as e:
             flash(f"Error scheduling: {e}", "danger")
             app.logger.error(f"Scheduler failed: {e}")
-        return redirect(url_for('run_scheduler_route'))
+        return redirect(url_for('run_scheduler'))
 
     # GET → render a simple form
     return render_template('run_scheduler.html')
