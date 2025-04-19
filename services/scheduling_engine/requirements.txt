@@ -1,4 +1,4 @@
 Flask
 gunicorn>=20.1
 mysql-connector-python
--e libs/scheduling
+-e ../../libs/scheduling
