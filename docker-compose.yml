@@ -35,7 +35,9 @@ services:
       - "5001:5001"
 
   conflict_detector:
-    build: ./services/conflict_detector
+    build:
+      context: .                        # ← root of your git repo
+      dockerfile: services/conflict_detector/Dockerfile
     depends_on:
       - db
     environment:
