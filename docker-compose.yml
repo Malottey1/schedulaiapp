@@ -21,7 +21,10 @@ services:
       - "6379:6379"
 
   scheduling_engine:
-    build: ./services/scheduling_engine
+    scheduling_engine:
+    build:
+      context: .
+      dockerfile: services/scheduling_engine/Dockerfile
     depends_on:
       - db
     environment:

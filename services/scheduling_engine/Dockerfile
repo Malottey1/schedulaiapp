@@ -1,16 +1,16 @@
 FROM python:3.11-slim
 WORKDIR /app
 
-# Copy your requirements first
-COPY requirements.txt ./
+# 1) copy requirements
+COPY services/scheduling_engine/requirements.txt ./
 
-# Copy the 'libs' folder so that pip can see ../libs/scheduling
-COPY ../../libs ./libs
+# 2) copy your shared library
+COPY libs/scheduling ./libs/scheduling
 
-# Install dependencies (including the editable lib)
+# 3) install deps (including the editable install)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the service code itself
-COPY . .
+# 4) copy only your service code
+COPY services/scheduling_engine ./
 
 CMD ["gunicorn", "--bind", "0.0.0.0:5001", "app:app"]

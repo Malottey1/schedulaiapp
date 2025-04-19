@@ -1,4 +1,3 @@
-Flask>=2.0
-
-# Editable install of your shared scheduling library
+Flask
+mysql-connector-python
 -e libs/scheduling
