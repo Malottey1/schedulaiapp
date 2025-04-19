@@ -22,7 +22,7 @@ def get_db_connection():
     """
     try:
         conn = mysql.connector.connect(
-            host='localhost',
+            host='db',
             user='root',
             password='schedul_pass',
             database='schedulai'

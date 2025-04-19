@@ -26,7 +26,7 @@ services:
       dockerfile: services/scheduling_engine/Dockerfile
     depends_on: [db]
     environment:
-      DB_HOST: localhost
+      DB_HOST: db
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
@@ -39,7 +39,7 @@ services:
       dockerfile: services/conflict_detector/Dockerfile
     depends_on: [db]
     environment:
-      DB_HOST: localhost
+      DB_HOST: db
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
@@ -52,7 +52,7 @@ services:
       dockerfile: services/analytics/Dockerfile
     depends_on: [db]
     environment:
-      DB_HOST: localhost
+      DB_HOST: db
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
@@ -70,7 +70,7 @@ services:
       - db
       - redis
     environment:
-      DB_HOST: localhost
+      DB_HOST: db
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai

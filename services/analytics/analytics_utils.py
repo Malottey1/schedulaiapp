@@ -31,7 +31,7 @@ def convert_to_time(t):
 def get_timetable_data():
     password = "schedul_pass"
     encoded_password = quote_plus(password)  # Converts "@" to "%40"
-    engine = create_engine(f'mysql+mysqlconnector://root:{encoded_password}@localhost/schedulai')
+    engine = create_engine(f'mysql+mysqlconnector://root:{encoded_password}@db/schedulai')
     query = """
     SELECT 
       sa.SessionID,

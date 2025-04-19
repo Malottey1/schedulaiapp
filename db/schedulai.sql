@@ -826,6 +826,9 @@ VALUES
     ('SOAN239', 'African & Diasporan Choir', 'Elective', 1, 1.0),
     ('SOAN242', 'Modern Dance Traditions of Ghana', 'Elective', 1, 1.0);
 
+INSERT INTO Course (CourseCode, CourseName, RequirementType, ActiveFlag, Credits)
+VALUES ('BUSA422', 'Corporate Finance', 'Core', 1, 1.0);
+
 
 CREATE TABLE Cohort (
     CohortID INT PRIMARY KEY AUTO_INCREMENT,
@@ -1295,7 +1298,7 @@ VALUES
     (2, 3, 5, 'II', 'CS341'),       -- Web Development
     (2, 3, 5, 'II', 'CS456'),       -- Algorithm Design & Analysis
     (2, 3, 5, 'II', 'CS313'),       -- Intermediate Computer Programming
-    (2, 3, 5, 'II', 'CS330');       -- Hardware and Systems Fundamentals
+    (2, 3, 5, 'II', 'CS330'),       -- Hardware and Systems Fundamentals
     (2, 3, 5, 'II', 'ELECTIVE1'); 
 
 -- Semester 6
