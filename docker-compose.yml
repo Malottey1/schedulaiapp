@@ -84,11 +84,15 @@ services:
 
   nginx:
     build:
-      context: .
-      dockerfile: services/nginx/Dockerfile
-    depends_on: [web]
+      context: ./services/nginx
+      dockerfile: Dockerfile
     ports:
       - "80:80"
+    depends_on:
+      - web
+      - scheduling_engine
+      - conflict_detector
+      - analytics
 
 volumes:
   db_data:
