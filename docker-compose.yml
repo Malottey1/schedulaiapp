@@ -24,8 +24,7 @@ services:
     build:
       context: .
       dockerfile: services/scheduling_engine/Dockerfile
-    depends_on:
-      - db
+    depends_on: [db]
     environment:
       DB_HOST: db
       DB_USER: scheduler
@@ -38,8 +37,7 @@ services:
     build:
       context: .
       dockerfile: services/conflict_detector/Dockerfile
-    depends_on:
-      - db
+    depends_on: [db]
     environment:
       DB_HOST: db
       DB_USER: scheduler
@@ -52,8 +50,7 @@ services:
     build:
       context: .
       dockerfile: services/analytics/Dockerfile
-    depends_on:
-      - db
+    depends_on: [db]
     environment:
       DB_HOST: db
       DB_USER: scheduler
@@ -89,8 +86,7 @@ services:
     build:
       context: .
       dockerfile: services/nginx/Dockerfile
-    depends_on:
-      - web
+    depends_on: [web]
     ports:
       - "80:80"
 
