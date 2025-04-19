@@ -36,7 +36,7 @@ services:
 
   conflict_detector:
     build:
-      context: .                        # ← root of your git repo
+      context: .
       dockerfile: services/conflict_detector/Dockerfile
     depends_on:
       - db
@@ -49,7 +49,9 @@ services:
       - "5002:5002"
 
   analytics:
-    build: ./services/analytics
+    build:
+      context: .
+      dockerfile: services/analytics/Dockerfile
     depends_on:
       - db
     environment:
@@ -61,7 +63,9 @@ services:
       - "5003:5003"
 
   web:
-    build: ./services/web
+    build:
+      context: .
+      dockerfile: services/web/Dockerfile
     depends_on:
       - scheduling_engine
       - conflict_detector
@@ -82,12 +86,13 @@ services:
       - "5000:5000"
 
   nginx:
-    build: ./services/nginx
+    build:
+      context: .
+      dockerfile: services/nginx/Dockerfile
     depends_on:
       - web
     ports:
       - "80:80"
-  
 
 volumes:
   db_data:
