@@ -1,6 +1,4 @@
 Flask>=2.0
 mysql-connector-python>=8.0
 pygad>=2.16
-
-# Editable install of your shared scheduling library
--e ../../libs/scheduling
+-e ../libs/scheduling
