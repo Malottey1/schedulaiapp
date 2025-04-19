@@ -3,15 +3,17 @@
 FROM python:3.11-slim
 WORKDIR /app
 
-# 1) Copy and install requirements
+# 1) bring in your scheduling library
+COPY libs/scheduling      ./libs/scheduling
+# 2) copy only the right requirements
 COPY services/conflict_detector/requirements.txt ./
-# 2) Copy in your local scheduling lib
-COPY libs/scheduling ./libs/scheduling
+
+# 3) tell Python about it
+ENV PYTHONPATH=/app/libs
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 3) Copy the rest of your service code
+# 4) now copy the Flask app
 COPY services/conflict_detector ./
 
-EXPOSE 5002
 CMD ["gunicorn", "--bind", "0.0.0.0:5002", "app:app"]
