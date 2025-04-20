@@ -41,7 +41,7 @@ def run_scheduler():
         except Exception as e:
             flash(f"Error scheduling: {e}", "danger")
             app.logger.error(f"Scheduler failed: {e}")
-        return redirect(url_for('run_scheduler'))
+        return redirect('/timetable')
 
     # GET → render a simple form
     return render_template('run_scheduler.html')

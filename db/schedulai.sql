@@ -889,6 +889,9 @@ CREATE TABLE SessionSchedule (
     FOREIGN KEY (SessionID) REFERENCES SessionAssignments(SessionID)
 ) ENGINE=InnoDB;
 
+ALTER TABLE SessionAssignments
+  ADD COLUMN AdditionalStaff VARCHAR(255) NULL AFTER NumberOfEnrollments;
+
 CREATE TABLE Major (
     MajorID INT PRIMARY KEY AUTO_INCREMENT,
     MajorName VARCHAR(255) NOT NULL UNIQUE
