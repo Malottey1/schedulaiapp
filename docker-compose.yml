@@ -24,7 +24,8 @@ services:
     build:
       context: .
       dockerfile: services/scheduling_engine/Dockerfile
-    depends_on: [db]
+    depends_on:
+      - db
     environment:
       DB_HOST: db
       DB_USER: root
@@ -37,27 +38,29 @@ services:
     build:
       context: .
       dockerfile: services/conflict_detector/Dockerfile
-    depends_on: [db]
+    depends_on:
+      - db
     environment:
       DB_HOST: db
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
-    ports:
-      - "5002:5002"
+    expose:
+      - "5002"
 
   analytics:
     build:
       context: .
       dockerfile: services/analytics/Dockerfile
-    depends_on: [db]
+    depends_on:
+      - db
     environment:
       DB_HOST: db
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
-    ports:
-      - "5003:5003"
+    expose:
+      - "5003"
 
   web:
     build:
@@ -79,20 +82,27 @@ services:
       CONFLICT_DETECTOR_URL: http://conflict_detector:5002
       ANALYTICS_URL: http://analytics:5003
       SECRET_KEY: change-me
-    ports:
-      - "5000:5000"
+    # override to use eventlet
+    command: >
+      gunicorn
+      -k eventlet
+      -w 1
+      --bind 0.0.0.0:5000
+      app:app
+    expose:
+      - "5000"
 
   nginx:
     build:
       context: ./services/nginx
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
     depends_on:
       - web
       - scheduling_engine
       - conflict_detector
       - analytics
+    ports:
+      - "80:80"
 
 volumes:
   db_data:
