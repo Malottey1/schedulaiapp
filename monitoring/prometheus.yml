@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # scrape your Flask services
+  - job_name: 'web'
+    static_configs:
+      - targets:
+        - 'web:5000'
+        - 'scheduling_engine:5001'
+        - 'conflict_detector:5002'
+        - 'analytics:5003'
