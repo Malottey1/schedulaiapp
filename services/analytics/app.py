@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from flask import Flask, jsonify, render_template
-from prometheus_client import make_wsgi_app
+from flask import Flask, jsonify, render_template, request, g, Response
+from prometheus_client import make_wsgi_app, Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from analytics_utils import (
     get_timetable_data,
@@ -12,12 +12,39 @@ from analytics_utils import (
     generate_analysis_report,
     create_visualizations
 )
-import os, logging
-
-
-
+import os, logging, time
 
 app = Flask(__name__)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Prometheus metrics definition & instrumentation
+# ────────────────────────────────────────────────────────────────────────────────
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'Latency of HTTP requests in seconds',
+    ['method', 'endpoint']
+)
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'http_status']
+)
+
+@app.before_request
+def _start_timer():
+    g.start_time = time.time()
+
+@app.after_request
+def _record_request_data(response):
+    elapsed = time.time() - g.start_time
+    REQUEST_LATENCY.labels(request.method, request.path).observe(elapsed)
+    REQUEST_COUNT.labels(request.method, request.path, response.status_code).inc()
+    return response
+
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+# ────────────────────────────────────────────────────────────────────────────────
 
 # ----------------------------------------------------
 # Flask Endpoint: /analyze_timetable
@@ -35,13 +62,10 @@ def analyze_timetable():
     load = compute_lecturer_load(df)
     
     # --- Compute Lecturer Load Context ---
-    # Build grouped lecturer load data for summary and table:
     lecturer_load_groups = {"light": [], "moderate": [], "heavy": []}
     lecturer_load_table = []
     for (day, lecturer), minutes in load.items():
-        # Add to table (this could be used for the interactive table)
         lecturer_load_table.append({"lecturer": lecturer, "day": day, "load": minutes})
-        # Categorize load based on thresholds (Light: 0-90, Moderate: 91-180, Heavy: 181+)
         if minutes <= 90:
             lecturer_load_groups["light"].append({"lecturer": lecturer, "load": minutes})
         elif minutes <= 180:
@@ -49,80 +73,58 @@ def analyze_timetable():
         else:
             lecturer_load_groups["heavy"].append({"lecturer": lecturer, "load": minutes})
     
-    # Build pie chart data for lecturer load distribution.
     lecturer_load_pie_data = {
-         "labels": ["Light", "Moderate", "Heavy"],
-         "data": [
-             len(lecturer_load_groups["light"]),
-             len(lecturer_load_groups["moderate"]),
-             len(lecturer_load_groups["heavy"])
-         ]
+        "labels": ["Light", "Moderate", "Heavy"],
+        "data": [
+            len(lecturer_load_groups["light"]),
+            len(lecturer_load_groups["moderate"]),
+            len(lecturer_load_groups["heavy"])
+        ]
     }
     
     # --- Compute Room Utilization Context ---
     days_order = ['Friday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']
     room_to_util = {}
     for (day, room), util in utilization.items():
-        if room not in room_to_util:
-            room_to_util[room] = {}
-        room_to_util[room][day] = util
+        room_to_util.setdefault(room, {})[day] = util
     utilization_by_day = []
     for room, day_utils in room_to_util.items():
-        # Ensure each day is present (defaulting to 0 if missing)
         util_dict = {day: day_utils.get(day, 0) for day in days_order}
         utilization_by_day.append({'room': room, 'utilization': util_dict})
     
-    # Build a summary grouping rooms by average utilization.
     utilization_summary = {'high': [], 'moderate': [], 'low': []}
     for item in utilization_by_day:
-        room = item['room']
-        utils = list(item['utilization'].values())
-        avg_util = sum(utils) / len(utils) if utils else 0
+        avg_util = sum(item['utilization'].values()) / len(days_order)
         if avg_util >= 0.8:
-            utilization_summary['high'].append(room)
+            utilization_summary['high'].append(item['room'])
         elif avg_util >= 0.5:
-            utilization_summary['moderate'].append(room)
+            utilization_summary['moderate'].append(item['room'])
         else:
-            utilization_summary['low'].append(room)
+            utilization_summary['low'].append(item['room'])
     
-    # Build chart data for room utilization (one dataset per day).
     rooms_sorted = sorted(room_to_util.keys())
     datasets = []
     colors = {
-        'Friday': '#007bff',      # Blue
-        'Monday': '#28a745',      # Green
-        'Tuesday': '#ffc107',     # Yellow
-        'Wednesday': '#17a2b8',   # Teal
-        'Thursday': '#dc3545'     # Red
+        'Friday': '#007bff',
+        'Monday': '#28a745',
+        'Tuesday': '#ffc107',
+        'Wednesday': '#17a2b8',
+        'Thursday': '#dc3545'
     }
     for day in days_order:
-        data = []
-        for room in rooms_sorted:
-            data.append(room_to_util.get(room, {}).get(day, 0))
-        datasets.append({
-            'label': day,
-            'data': data,
-            'backgroundColor': colors.get(day, '#6c757d')
-        })
-    room_util_chart_data = {
-        'labels': rooms_sorted,
-        'datasets': datasets
-    }
+        data = [room_to_util.get(room, {}).get(day, 0) for room in rooms_sorted]
+        datasets.append({'label': day, 'data': data, 'backgroundColor': colors.get(day)})
+    room_util_chart_data = {'labels': rooms_sorted, 'datasets': datasets}
     
-    # Step 3: Compute overall score and grade.
+    # Step 3: Score & grade
     total_score, grade = grade_schedule(room_conflicts, lecturer_conflicts, utilization, load)
-    
-    # Step 4: Anomaly detection (e.g., overworked lecturers).
     anomalies = perform_anomaly_detection(load)
-    
-    # Step 5: Generate the analysis report using NLG (including conflict details).
-    report = generate_analysis_report(total_score, grade, room_conflicts, lecturer_conflicts,
-                                      utilization, load, room_conflict_details, lecturer_conflict_details)
-    
-    # Step 6: Generate visualizations (charts).
+    report = generate_analysis_report(
+        total_score, grade, room_conflicts, lecturer_conflicts,
+        utilization, load, room_conflict_details, lecturer_conflict_details
+    )
     room_util_img, lecturer_load_img = create_visualizations(utilization, load)
     
-    # Render the analysis dashboard template, passing all computed variables.
     return render_template("analysis_dashboard.html",
                            report=report,
                            grade=grade,
@@ -139,7 +141,7 @@ def analyze_timetable():
                            lecturer_load_table=lecturer_load_table,
                            lecturer_load_pie_data=lecturer_load_pie_data)
 
-# expose Prometheus metrics at /metrics
+# Mount Prometheus WSGI app
 app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
     '/metrics': make_wsgi_app()
 })

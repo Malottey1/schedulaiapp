@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import os
 import logging
-from flask import Flask, redirect, url_for
+import time
+from flask import Flask, redirect, url_for, flash, request, g, Response
 from scheduling.feasibility_checker import feasibility_bp
-from prometheus_client import make_wsgi_app
+from prometheus_client import Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST, make_wsgi_app
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
-
-from flask import Flask, redirect, url_for, flash
 
 # ----------------------------------------------------
 # App & Logging setup
@@ -19,18 +18,49 @@ logging.basicConfig(
 )
 
 # ----------------------------------------------------
+# Prometheus instrumentation
+# ----------------------------------------------------
+# define your metrics
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'Latency of HTTP requests in seconds',
+    ['method', 'endpoint']
+)
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'http_status']
+)
+
+# record start time before each request
+@app.before_request
+def _start_timer():
+    g.start_time = time.time()
+
+# observe metrics after each request
+@app.after_request
+def _record_request_data(response):
+    resp_time = time.time() - g.start_time
+    REQUEST_LATENCY.labels(request.method, request.path).observe(resp_time)
+    REQUEST_COUNT.labels(request.method, request.path, response.status_code).inc()
+    return response
+
+# integrate Prometheus WSGI app on /metrics
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+    '/metrics': make_wsgi_app()
+})
+
+# ----------------------------------------------------
 # Register feasibility blueprint
 # ----------------------------------------------------
 app.register_blueprint(feasibility_bp, url_prefix='/')
 
 # ----------------------------------------------------
-# Convenience endpoint to redirect to the blueprint’s /feasibility_check
+# Convenience stubs for sidebar endpoints
 # ----------------------------------------------------
 @app.route('/feasibility', methods=['GET'])
 def feasibility():
-    # Assuming your blueprint defines a function named `feasibility_check`
     return redirect(url_for('feasibility.feasibility_check'))
-
 
 @app.route('/conflicts')
 def conflicts():
@@ -48,7 +78,6 @@ def manage_sessions_schedule():
 def analyze_timetable():
     return redirect('/analyze_timetable')
 
-# you already have /feasibility above, so next:
 @app.route('/conflict_free_matrix')
 def conflict_free_matrix():
     return redirect('/conflict_free_matrix')
@@ -68,12 +97,6 @@ def export_csv():
 @app.route('/dashboard')
 def dashboard():
     return redirect('/dashboard')
-
-
-# expose Prometheus metrics at /metrics
-app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
-    '/metrics': make_wsgi_app()
-})
 
 # ----------------------------------------------------
 # Main runner

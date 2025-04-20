@@ -3,14 +3,14 @@ import os, logging, json, re, threading, random, base64, io
 from datetime import datetime, timedelta, time
 from collections import defaultdict
 from flask import (Flask, render_template, request, redirect, url_for,
-                   session, flash, jsonify)
+                   session, flash, jsonify, g, Response)
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_socketio import SocketIO, emit
 import mysql.connector
 import pandas as pd
 import matplotlib
-from prometheus_client import make_wsgi_app
+from prometheus_client import make_wsgi_app, Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from services.analytics.analytics_utils import compute_conflicts, compute_lecturer_load, compute_room_utilization, create_visualizations, generate_analysis_report, get_timetable_data, grade_schedule, perform_anomaly_detection
@@ -24,6 +24,39 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY','change-me')
 socketio = SocketIO(app)
 
+# ────────────────────────────────────────────────────────────────────────────────
+# INSERT PROMETHEUS METRICS INSTRUMENTATION HERE
+# ────────────────────────────────────────────────────────────────────────────────
+import time
+
+# 1) Define your metrics
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'Latency of HTTP requests in seconds',
+    ['method', 'endpoint']
+)
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'http_status']
+)
+
+# 2) Hook into Flask’s request lifecycle
+@app.before_request
+def _start_timer():
+    g.start_time = time.time()
+
+@app.after_request
+def _record_request_data(response):
+    resp_time = time.time() - g.start_time
+    REQUEST_LATENCY.labels(request.method, request.path).observe(resp_time)
+    REQUEST_COUNT.labels(request.method, request.path, response.status_code).inc()
+    return response
+
+# 3) (Optional) if you want a direct /metrics endpoint instead of WSGI mount:
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 # ----------------------------------------------------
 # Configure Logging
@@ -3464,12 +3497,10 @@ def export_csv():
     return render_template('export_csv.html')
 
 
-# expose Prometheus metrics at /metrics
+# finally, mount the Prometheus WSGI app on /metrics (you already have this, just keep it)  
 app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
     '/metrics': make_wsgi_app()
 })
-
-
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
