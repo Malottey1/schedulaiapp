@@ -10,7 +10,7 @@ from flask_socketio import SocketIO, emit
 import mysql.connector
 import pandas as pd
 import matplotlib
-from scheduling.scheduler import schedule_sessions as run_schedule
+
 
 from services.analytics.analytics_utils import compute_conflicts, compute_lecturer_load, compute_room_utilization, create_visualizations, generate_analysis_report, get_timetable_data, grade_schedule, perform_anomaly_detection
 matplotlib.use('Agg')
@@ -2087,36 +2087,6 @@ def edit_session_assignments():
                            session_types=session_types, 
                            durations=durations)
 
-
-# ----------------------------------------------------
-# ROUTE: Run Scheduler (background thread)
-# ----------------------------------------------------
-@app.route('/run_scheduler', methods=['GET', 'POST'])
-def run_scheduler():
-    app.logger.info("Accessed /run_scheduler route.")
-    if request.method == 'POST':
-        # path to your CSV or whatever input the scheduler needs
-        session_csv = os.path.join(
-            os.path.dirname(__file__),
-            'scheduling',
-            'Session_Location_Preferences.csv'
-        )
-        try:
-            scheduler_thread = threading.Thread(
-                target=run_schedule,
-                args=(session_csv,)
-            )
-            scheduler_thread.daemon = True
-            scheduler_thread.start()
-            flash("Scheduling started in the background.", "success")
-            app.logger.info("Scheduler thread started.")
-        except Exception as e:
-            flash(f"Error scheduling: {e}", "danger")
-            app.logger.error(f"Scheduler failed: {e}")
-        return redirect('/timetable')
-
-    # GET → render a simple form
-    return render_template('run_scheduler.html')
 
 
 # ----------------------------------------------------
