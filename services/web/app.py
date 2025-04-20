@@ -2088,6 +2088,11 @@ def edit_session_assignments():
                            durations=durations)
 
 
+@app.route('/feasibility', endpoint='feasibility')
+def _feasibility_stub():
+    # we never actually serve this here—nginx will proxy it to conflict_detector
+    return redirect('/feasibility')
+
 
 # ----------------------------------------------------
 # Route: Get Existing Schedule for Cohort and Course
