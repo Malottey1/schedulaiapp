@@ -7,7 +7,7 @@ from scheduling.feasibility_checker import feasibility_bp
 # ----------------------------------------------------
 # App & Logging setup
 # ----------------------------------------------------
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 app.logger.setLevel(logging.INFO)
 logging.basicConfig(
     level=logging.INFO,
