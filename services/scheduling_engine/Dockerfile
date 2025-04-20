@@ -8,7 +8,7 @@ COPY services/scheduling_engine/requirements.txt ./
 
 ENV PYTHONPATH=/app/libs
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt prometheus_client
 COPY services/scheduling_engine ./
 
 CMD ["gunicorn", "--bind", "0.0.0.0:5001", "app:app"]

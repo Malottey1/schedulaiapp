@@ -7,7 +7,7 @@ COPY libs/scheduling ./libs/scheduling
 # 2) install requirements
 COPY services/conflict_detector/requirements.txt ./
 ENV PYTHONPATH=/app/libs
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt prometheus_client
 
 # 3) copy the app code
 COPY services/conflict_detector ./

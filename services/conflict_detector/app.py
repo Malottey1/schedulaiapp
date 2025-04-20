@@ -3,6 +3,8 @@ import os
 import logging
 from flask import Flask, redirect, url_for
 from scheduling.feasibility_checker import feasibility_bp
+from prometheus_client import make_wsgi_app
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from flask import Flask, redirect, url_for, flash
 
@@ -66,6 +68,12 @@ def export_csv():
 @app.route('/dashboard')
 def dashboard():
     return redirect('/dashboard')
+
+
+# expose Prometheus metrics at /metrics
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+    '/metrics': make_wsgi_app()
+})
 
 # ----------------------------------------------------
 # Main runner

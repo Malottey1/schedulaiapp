@@ -3,11 +3,22 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  # scrape your Flask services
   - job_name: 'web'
+    metrics_path: /metrics
     static_configs:
-      - targets:
-        - 'web:5000'
-        - 'scheduling_engine:5001'
-        - 'conflict_detector:5002'
-        - 'analytics:5003'
+      - targets: ['web:5000']
+
+  - job_name: 'scheduling_engine'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['scheduling_engine:5001']
+
+  - job_name: 'conflict_detector'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['conflict_detector:5002']
+
+  - job_name: 'analytics'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['analytics:5003']

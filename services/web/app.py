@@ -10,7 +10,8 @@ from flask_socketio import SocketIO, emit
 import mysql.connector
 import pandas as pd
 import matplotlib
-
+from prometheus_client import make_wsgi_app
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from services.analytics.analytics_utils import compute_conflicts, compute_lecturer_load, compute_room_utilization, create_visualizations, generate_analysis_report, get_timetable_data, grade_schedule, perform_anomaly_detection
 matplotlib.use('Agg')
@@ -3461,6 +3462,12 @@ def export_csv():
         return response
 
     return render_template('export_csv.html')
+
+
+# expose Prometheus metrics at /metrics
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+    '/metrics': make_wsgi_app()
+})
 
 
 

@@ -11,7 +11,7 @@ COPY services/analytics   ./services/analytics
 # install deps
 COPY services/web/requirements.txt ./
 ENV PYTHONPATH=/app
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt prometheus_client
 
 # now copy the web UI
 COPY services/web         ./

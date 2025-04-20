@@ -4,6 +4,8 @@ import logging
 import threading
 from flask import Flask, request, redirect, url_for, flash, render_template
 from scheduling.scheduler import schedule_sessions as run_schedule
+from prometheus_client import make_wsgi_app
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 # ----------------------------------------------------
 # App & Logging setup
@@ -45,6 +47,11 @@ def run_scheduler():
 
     # GET → render a simple form
     return render_template('run_scheduler.html')
+
+# expose Prometheus metrics at /metrics
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+    '/metrics': make_wsgi_app()
+})
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5001))

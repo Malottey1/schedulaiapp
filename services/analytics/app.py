@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 from flask import Flask, jsonify, render_template
+from prometheus_client import make_wsgi_app
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from analytics_utils import (
     get_timetable_data,
     compute_conflicts,
@@ -11,6 +13,8 @@ from analytics_utils import (
     create_visualizations
 )
 import os, logging
+
+
 
 
 app = Flask(__name__)
@@ -134,3 +138,8 @@ def analyze_timetable():
                            lecturer_load_groups=lecturer_load_groups,
                            lecturer_load_table=lecturer_load_table,
                            lecturer_load_pie_data=lecturer_load_pie_data)
+
+# expose Prometheus metrics at /metrics
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+    '/metrics': make_wsgi_app()
+})
