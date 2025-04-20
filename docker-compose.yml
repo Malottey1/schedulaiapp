@@ -30,8 +30,8 @@ services:
       DB_USER: root
       DB_PASSWORD: schedul_pass
       DB_NAME: schedulai
-    ports:
-      - "5001:5001"
+    expose:
+      - "5001"
 
   conflict_detector:
     build:
