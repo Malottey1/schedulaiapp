@@ -4,6 +4,8 @@ import logging
 from flask import Flask, redirect, url_for
 from scheduling.feasibility_checker import feasibility_bp
 
+from flask import Flask, redirect, url_for, flash
+
 # ----------------------------------------------------
 # App & Logging setup
 # ----------------------------------------------------
