@@ -29,6 +29,44 @@ def feasibility():
     # Assuming your blueprint defines a function named `feasibility_check`
     return redirect(url_for('feasibility.feasibility_check'))
 
+
+@app.route('/conflicts')
+def conflicts():
+    return redirect('/conflicts')
+
+@app.route('/resolve_room_conflicts')
+def resolve_room_conflicts():
+    return redirect('/resolve_room_conflicts')
+
+@app.route('/manage_sessions_schedule')
+def manage_sessions_schedule():
+    return redirect('/manage_sessions_schedule')
+
+@app.route('/analyze_timetable')
+def analyze_timetable():
+    return redirect('/analyze_timetable')
+
+# you already have /feasibility above, so next:
+@app.route('/conflict_free_matrix')
+def conflict_free_matrix():
+    return redirect('/conflict_free_matrix')
+
+@app.route('/student_timetables')
+def student_timetables():
+    return redirect('/student_timetables')
+
+@app.route('/timetable')
+def timetable():
+    return redirect('/timetable')
+
+@app.route('/export_csv')
+def export_csv():
+    return redirect('/export_csv')
+
+@app.route('/dashboard')
+def dashboard():
+    return redirect('/dashboard')
+
 # ----------------------------------------------------
 # Main runner
 # ----------------------------------------------------
