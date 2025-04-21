@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -10,28 +11,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v3
+      # 1. Check out your repository
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      # 2. Set up Python 3.11
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install pytest pytest-cov
+      # 3. (Optional) Cache pip downloads between runs
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Run pytest with coverage
-      run: |
-        pytest --cov=./libs/scheduling \
-               --cov-branch \
-               --cov-report=term-missing \
-               --cov-report=html
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
 
-    - name: Upload HTML coverage report
-      uses: actions/upload-artifact@v2
-      with:
-        name: coverage-report
-        path: htmlcov
+      # 5. Run pytest with coverage
+      - name: Run tests & generate coverage
+        run: |
+          pytest --cov=./libs/scheduling \
+                 --cov-branch \
+                 --cov-report=term-missing \
+                 --cov-report=html
+
+      # 6. Upload the HTML coverage report for later inspection
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v1
+        with:
+          name: coverage-report
+          path: htmlcov/
