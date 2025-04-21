@@ -18,4 +18,4 @@ COPY services/conflict_detector/templates ./templates
 # 5) pull in the shared base.html from the web service
 COPY services/web/templates/base.html ./templates/
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5002", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5002", "--timeout", "600", "--workers", "1", "app:app"]
