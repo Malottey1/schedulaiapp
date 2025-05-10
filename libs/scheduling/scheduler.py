@@ -12,6 +12,8 @@ import re
 from datetime import datetime
 import os
 import logging
+import re
+from datetime import timedelta
 
 # ----------------------------------------------------
 # 1. MySQL Database Connection
@@ -54,6 +56,31 @@ def normalize_duration_str(duration_str: str) -> str:
             # Now it's "01:30:00"
 
     return duration_str
+
+import re
+from datetime import timedelta, datetime as _dt
+
+def format_duration(td: timedelta) -> str:
+    """
+    Convert a timedelta to 'HH:MM:SS'.
+    """
+    total_seconds = int(td.total_seconds())
+    hours, rem = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+def is_valid_duration(duration: str) -> bool:
+    """
+    Strictly validate 'H:MM:SS' or 'HH:MM:SS' where
+    H or HH is 0–99 and MM,SS are 00–59.
+    Rejects '1:2:3', '99:99:99', etc.
+    """
+    if not isinstance(duration, str):
+        return False
+    duration = duration.strip()
+    # H   :MM:SS or HH:MM:SS
+    pattern = r'^\d{1,2}:[0-5]\d:[0-5]\d$'
+    return re.match(pattern, duration) is not None
 
 # ----------------------------------------------------
 # 3. Fetch Data from DB and CSV
@@ -534,6 +561,8 @@ def schedule_sessions(session_preferences_csv_path):
             # 6B-7e. For non-Math or leftover, attempt preferred rooms
             if not session_assigned:
                 for pref_room in preferred_rooms.get(course_code, []):
+                    if pref_room not in room_occupancy[day]:
+                        continue
                     blk = 0
                     while blk + dur_blocks + 1 <= time_slots_per_day:
                         capacity_ok  = (
