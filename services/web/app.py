@@ -3420,7 +3420,7 @@ def courses():
                     cursor.execute(update_sql, selected_course_ids)
                 
                 conn.commit()
-                return redirect(url_for('courses'))
+                return redirect(url_for('student_courses'))
     
             # For GET, fetch all courses (including their active flag)
             cursor.execute("""
@@ -3438,7 +3438,7 @@ def courses():
         cursor.close()
         conn.close()
     
-    return redirect(url_for('student_courses'))
+    return render_template('courses.html', courses=courses_data)
 
 
 @app.route('/export_csv', methods=['GET', 'POST'])
