@@ -24,6 +24,8 @@ from jinja2 import Template
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus
 
+logging.getLogger().setLevel(logging.DEBUG)
+
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY','change-me')
 socketio = SocketIO(app)
@@ -2396,6 +2398,10 @@ def timetable():
         rooms = []
         time_slots = []
         course_colors = {}
+
+    logging.debug(f"rooms: {rooms!r}")
+    logging.debug(f"sessions_by_room: {sessions_by_room!r}")
+    logging.debug(f"time_slots: {time_slots!r}")
     
     return render_template(
         'timetable.html',
