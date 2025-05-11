@@ -3438,7 +3438,7 @@ def courses():
         cursor.close()
         conn.close()
     
-    return render_template('courses.html', courses=courses_data)
+    return redirect(url_for('student_courses'))
 
 
 @app.route('/export_csv', methods=['GET', 'POST'])
