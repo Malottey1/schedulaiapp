@@ -3,7 +3,7 @@
 import eventlet
 eventlet.monkey_patch()
 import os, logging, json, re, threading, random, base64, io
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time as datetime_time
 from collections import defaultdict
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, flash, jsonify, g, Response)
@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 from jinja2 import Template
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus
+
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -155,14 +156,11 @@ def convert_time_to_hhmm(time_obj):
             hours = total_seconds // 3600
             minutes = (total_seconds % 3600) // 60
             return f"{hours:02d}:{minutes:02d}"
-        elif isinstance(time_obj, time):
+        elif isinstance(time_obj, datetime_time):
             return time_obj.strftime("%H:%M")
         elif isinstance(time_obj, str):
             # If the string is in the form "HH:MM:SS", return "HH:MM"
-            if len(time_obj) >= 5:
-                return time_obj[:5]
-            else:
-                return time_obj
+            return time_obj[:5] if len(time_obj) >= 5 else time_obj
         else:
             return "00:00"
     except Exception as e:
