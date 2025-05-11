@@ -258,7 +258,7 @@
         </div>
 
         <!-- Outer Form Start -->
-        <form method="POST" id="coursesForm">
+        <form method="POST" id="coursesForm" action="{{ url_for('student_courses') }}">
           <!-- Courses Display -->
           <div class="row">
             {% for course in courses %}
@@ -284,7 +284,7 @@
           <div class="row">
             <div class="col">
               <button type="button" class="btn btn-primary submit-btn" data-bs-toggle="modal" data-bs-target="#confirmSubmitModal">
-                <i class="bi bi-arrow-right-circle-fill"></i> Proceed to Assign Sessions
+                <i class="bi bi-arrow-right-circle-fill"></i> Proceed to Select Student Courses
               </button>
             </div>
           </div>
