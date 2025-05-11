@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+import eventlet
+eventlet.monkey_patch()
 import os, logging, json, re, threading, random, base64, io
 from datetime import datetime, timedelta, time
 from collections import defaultdict
@@ -8,6 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_socketio import SocketIO, emit
 import mysql.connector
+from mysql.connector import pooling, Error
 import pandas as pd
 import matplotlib
 from prometheus_client import make_wsgi_app, Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST
@@ -71,18 +75,36 @@ logging.basicConfig(
 # ----------------------------------------------------
 # MySQL Database Connection
 # ----------------------------------------------------
-def get_db_connection():
-    try:
-        conn = mysql.connector.connect(
-            host='db',
-            user='root',
-            password='schedul_pass',
-            database='schedulai'
+# ─────────────────────────────────────────────────────────────────────────────
+# MySQL Connection Pool Setup
+# ─────────────────────────────────────────────────────────────────────────────
+_db_pool = None
+
+def init_db_pool():
+    global _db_pool
+    if _db_pool is None:
+        _db_pool = pooling.MySQLConnectionPool(
+            pool_name="schedulai_pool",
+            pool_size=5,
+            host="db",  
+            user="root",  
+            password="schedul_pass",  
+            database="schedulai",  
+            connection_timeout=5
         )
-        return conn
-    except mysql.connector.Error as err:
-        logging.error(f"Database connection failed: {err}")
-        return None
+
+def get_db_connection():
+    """
+    Returns a pooled MySQL connection.
+    Raises mysql.connector.Error on failure.
+    """
+    try:
+        init_db_pool()
+        return _db_pool.get_connection()
+    except Error as err:
+        app.logger.error(f"[DB] connection failed: {err}")
+        # propagate to calling code so your route can return 500
+        raise
 
 
 def escapejs_filter(s):
@@ -2950,15 +2972,17 @@ def suggest_alternatives():
     if not session_id or not lecturer:
         logging.warning("Invalid data received in /suggest_alternatives route.")
         return jsonify({"message": "Invalid data. 'SessionID' and 'LecturerName' are required."}), 400
-    
-    # A: Fetch session's duration from the database
-    conn = get_db_connection()
-    if conn is None:
-        logging.error("Failed to connect to the database in suggest_alternatives.")
+
+    # A: Get a pooled DB connection
+    try:
+        conn = get_db_connection()
+    except Error as e:
+        logging.error(f"DB connection failed in suggest_alternatives: {e}")
         return jsonify({"message": "Database connection failed."}), 500
-    
+
     try:
         with conn.cursor(dictionary=True) as cursor:
+            # Fetch session duration
             cursor.execute("""
                 SELECT Duration
                 FROM SessionAssignments
@@ -2971,55 +2995,40 @@ def suggest_alternatives():
                 return jsonify({"message": "Session duration not found."}), 400
 
             duration_obj = row['Duration']
-            session_duration = 0  # Initialize
-
+            # compute session_duration in minutes
             if isinstance(duration_obj, timedelta):
-                total_seconds = int(duration_obj.total_seconds())
-                hours = total_seconds // 3600
-                minutes = (total_seconds % 3600) // 60
-                seconds = total_seconds % 60
-                session_duration = hours * 60 + minutes + (1 if seconds >= 30 else 0)  # Round up if seconds >= 30
-                logging.debug(f"Duration (timedelta) for SessionID {session_id}: {hours}h {minutes}m {seconds}s")
-            elif isinstance(duration_obj, str):
+                secs = int(duration_obj.total_seconds())
+                session_duration = (secs + 30) // 60
+            else:
                 try:
-                    h, m, s = map(int, duration_obj.split(':'))
-                    session_duration = h * 60 + m + (1 if s >= 30 else 0)
-                    logging.debug(f"Duration (str) for SessionID {session_id}: {h}h {m}m {s}s")
-                except:
+                    h, m, s = map(int, str(duration_obj).split(':'))
+                    session_duration = (h * 3600 + m * 60 + s + 30) // 60
+                except ValueError:
                     logging.error(f"Invalid session duration format for SessionID: {session_id}")
                     return jsonify({"message": "Invalid session duration format."}), 400
-            else:
-                logging.error(f"Unsupported duration type for SessionID: {session_id}")
-                return jsonify({"message": "Invalid session duration format."}), 400
 
-            # B: Determine possible days based on lecturer's current assignments
+            # B: Exclude days lecturer already teaches
             all_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-            assigned_days = lecturer_assigned_days(lecturer)
-            logging.debug(f"Assigned days for lecturer {lecturer}: {assigned_days}")
+            assigned_days = set(lecturer_assigned_days(lecturer))
 
-            # --- NEW RULE: Exclude days already used by the course ---
-            # Retrieve the course code for the session:
+            # Exclude days where this course is already scheduled
             cursor.execute("SELECT CourseCode FROM SessionAssignments WHERE SessionID = %s", (session_id,))
             course_row = cursor.fetchone()
-            course_code = course_row["CourseCode"] if course_row else None
             course_days = set()
-            if course_code:
+            if course_row:
+                course_code = course_row["CourseCode"]
                 cursor.execute("""
                     SELECT DISTINCT ss.DayOfWeek
-                    FROM UpdatedSessionSchedule  ss
+                    FROM UpdatedSessionSchedule ss
                     JOIN SessionAssignments sa ON ss.SessionID = sa.SessionID
                     WHERE sa.CourseCode = %s
                 """, (course_code,))
-                rows = cursor.fetchall()
-                course_days = {r["DayOfWeek"] for r in rows}
-                logging.debug(f"Existing scheduled days for course {course_code}: {course_days}")
+                course_days = {r["DayOfWeek"] for r in cursor.fetchall()}
 
-            # Exclude both lecturer assigned days and course scheduled days
-            excluded_days = set(assigned_days) | course_days
-            possible_days = [day for day in all_days if day not in excluded_days]
-            logging.debug(f"Possible alternative days after exclusion: {possible_days}")
+            excluded = assigned_days | course_days
+            possible_days = [d for d in all_days if d not in excluded]
 
-            # C: Define possible timeslots (HH:MM format)
+            # C: Define possible timeslots
             possible_times = [
                 # Define timeslots as needed, possibly generated dynamically
                 ("08:00","09:30"),("08:00","09:00"),("08:00","10:00"),
@@ -3061,56 +3070,61 @@ def suggest_alternatives():
                 ("16:40","18:10"),("16:40","18:40"),("16:40","17:40"),
                 ("16:45","17:45")
             ]
-    
-            # D: Fetch all active rooms that can accommodate the enrollments
+
+            # D: Fetch rooms that fit enrollment
             cursor.execute("""
-                SELECT Location, Location AS RoomName, MaxRoomCapacity 
-                FROM Room 
-                WHERE ActiveFlag = 1 AND MaxRoomCapacity >= %s
+                SELECT Location, Location AS RoomName, MaxRoomCapacity
+                FROM Room
+                WHERE ActiveFlag=1 AND MaxRoomCapacity >= %s
             """, (enrollments,))
             suitable_rooms = cursor.fetchall()
     
+    
+        # No suitable rooms found
+
         # No suitable rooms found
         if not suitable_rooms:
-            logging.info("No suitable rooms found for the given enrollments.")
+            logging.info("No suitable rooms found.")
             return jsonify({"alternatives": []})
-    
-    except mysql.connector.Error as err:
-        logging.error(f"Error fetching session duration or rooms: {err}")
+
+    except Error as err:
+        logging.error(f"Error fetching session data or rooms: {err}")
         return jsonify({"message": f"Database error: {err}"}), 500
     finally:
-        conn.close()
-    
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    # E: Iterate through possible slots
     free_slots = []
     for day in possible_days:
-        for (st, en) in possible_times:
-            # Calculate the duration of the timeslot
+        for st, en in possible_times:
+            # compute slot duration
             try:
-                start_hours, start_minutes = map(int, st.split(':'))
-                end_hours, end_minutes = map(int, en.split(':'))
+                sh, sm = map(int, st.split(':'))
+                eh, em = map(int, en.split(':'))
             except ValueError:
-                logging.error(f"Invalid timeslot format: {st} - {en}")
+                logging.error(f"Invalid timeslot format: {st}-{en}")
                 continue
-            timeslot_duration = (end_hours * 60 + end_minutes) - (start_hours * 60 + start_minutes)
-    
-            # Only consider timeslots that match the session's duration
-            if timeslot_duration != session_duration:
+            slot_mins = (eh*60+em) - (sh*60+sm)
+            if slot_mins != session_duration:
                 continue
-    
-            # Skip timeslots that overlap with Friday prayer
             if overlaps_friday_prayer(day, st, en):
                 continue
-    
+
             for room in suitable_rooms:
-                # Check if the room is free during the timeslot
+                # Check room free
                 free_rooms = rooms_free_for_timeslot(day, st, en)
-                if not any(r['RoomName'] == room['RoomName'] for r in free_rooms):
+                if not any(r['RoomName']==room['RoomName'] for r in free_rooms):
                     continue
-    
-                # Check if the lecturer is free during the timeslot
+                # Check lecturer free
                 if not lecturer_is_free(lecturer, day, st, en):
                     continue
     
+    
+                # If all conditions are met, add the slot to free_slots
+
                 # If all conditions are met, add the slot to free_slots
                 free_slots.append({
                     "Day": day,
@@ -3119,8 +3133,8 @@ def suggest_alternatives():
                     "Location": room['Location'],
                     "MaxRoomCapacity": room['MaxRoomCapacity']
                 })
-    
-    logging.info(f"Found {len(free_slots)} alternative slots for SessionID: {session_id}")
+
+    logging.info(f"Found {len(free_slots)} alternatives for SessionID: {session_id}")
     return jsonify({"alternatives": free_slots})
 
 
