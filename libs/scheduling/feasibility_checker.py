@@ -50,7 +50,7 @@ def get_db_connection():
         conn = mysql.connector.connect(
             host='db',
             user='root',
-            password='schedul_pass',
+            password=' ',
             database='schedulai'
         )
         return conn
